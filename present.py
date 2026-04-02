@@ -56,6 +56,8 @@ def init_state(params):
 	st.session_state.month_idx = 0
 	st.session_state.total_months = useful_years * 12
 	st.session_state.history = []
+	st.session_state.history_company_a = []
+	st.session_state.history_company_b = []
 	st.session_state.events = []
 	st.session_state.book_value = initial_asset
 	st.session_state.salvage_rate = salvage_rate
@@ -65,6 +67,7 @@ def init_state(params):
 	st.session_state.impair_ratio = float(params["impair_ratio"])
 	st.session_state.upgrade_pending = False
 	st.session_state.upgrade_pending_delta = 0.0
+	st.session_state.current_owner = "A"
 	st.session_state.current_schedule = monthly_schedule(
 		method=st.session_state.method,
 		book_value=st.session_state.book_value,
@@ -143,15 +146,34 @@ def apply_impairment():
 	recalc_schedule()
 
 
+def apply_transfer():
+	if st.session_state.month_idx >= st.session_state.total_months:
+		return
+	if st.session_state.upgrade_pending:
+		return
+
+	new_owner = "B" if st.session_state.current_owner == "A" else "A"
+	st.session_state.current_owner = new_owner
+	recalc_schedule()
+	st.session_state.events.append(
+		{
+			"month": st.session_state.month_idx,
+			"label": f"→ Co.{new_owner}  {st.session_state.book_value:,.0f}",
+			"color": "#6a4c93",
+		}
+	)
+
+
 def advance_one_month():
 	if st.session_state.month_idx >= st.session_state.total_months:
 		st.session_state.running = False
 		st.session_state.page = "end"
 		return
 
-	# During upgrade request period, timeline still advances but depreciation is set to zero.
+	# During upgrade request period both companies record 0
 	if st.session_state.upgrade_pending:
-		st.session_state.history.append(0.0)
+		st.session_state.history_company_a.append(0.0)
+		st.session_state.history_company_b.append(0.0)
 		st.session_state.month_idx += 1
 		if st.session_state.month_idx >= st.session_state.total_months:
 			st.session_state.running = False
@@ -164,57 +186,70 @@ def advance_one_month():
 	dep = st.session_state.current_schedule[0] if st.session_state.current_schedule else 0.0
 	dep = min(dep, max(st.session_state.book_value - st.session_state.current_salvage, 0.0))
 
-	st.session_state.history.append(dep)
-	st.session_state.book_value -= dep
-	st.session_state.month_idx += 1
-	st.session_state.current_schedule = st.session_state.current_schedule[1:]
+	if st.session_state.current_owner == "A":
+		st.session_state.history_company_a.append(dep)
+		st.session_state.history_company_b.append(0.0)
+	else:
+		st.session_state.history_company_a.append(0.0)
+		st.session_state.history_company_b.append(dep)
 
+	st.session_state.book_value -= dep
+	st.session_state.current_schedule = st.session_state.current_schedule[1:]
+	st.session_state.month_idx += 1
 	if st.session_state.month_idx >= st.session_state.total_months:
 		st.session_state.running = False
 		st.session_state.page = "end"
 
 
-def render_chart():
-	months = list(range(1, len(st.session_state.history) + 1))
-	values = st.session_state.history if st.session_state.history else [0.0]
-	x_values = months if months else [1]
+def render_chart_company(company):
+	if company == "A":
+		history = list(st.session_state.history_company_a) if st.session_state.history_company_a else [0.0]
+		label = "Company A"
+		color = "#ff8c42"
+	else:
+		history = list(st.session_state.history_company_b) if st.session_state.history_company_b else [0.0] * max(st.session_state.month_idx, 1)
+		label = "Company B"
+		color = "#6a4c93"
+
+	months = list(range(1, len(history) + 1))
 
 	fig = go.Figure()
 	fig.add_trace(
 		go.Scatter(
-			x=x_values,
-			y=values,
+			x=months,
+			y=history,
 			mode="lines",
-			line={"shape": "spline", "smoothing": 1.1, "width": 4, "color": "#ff8c42"},
-			name="Monthly Depreciation",
+			line={"shape": "spline", "smoothing": 1.1, "width": 4, "color": color},
+			name=f"{label} Depreciation",
 		)
 	)
 
-	if st.session_state.events and months:
-		for event in st.session_state.events:
-			month = event["month"]
-			if month <= 0 or month > len(values):
-				continue
-			fig.add_trace(
-				go.Scatter(
-					x=[month],
-					y=[values[month - 1]],
-					mode="markers+text",
-					marker={"size": 10, "color": event["color"]},
-					text=[event["label"]],
-					textposition="top center",
-					name=event["label"],
-				)
+	for event in st.session_state.events:
+		month = event["month"]
+		if month <= 0 or month > len(history):
+			continue
+		y_val = history[month - 1]
+		fig.add_trace(
+			go.Scatter(
+				x=[month],
+				y=[y_val],
+				mode="markers+text",
+				marker={"size": 10, "color": event["color"]},
+				text=[event["label"]],
+				textposition="top center",
+				showlegend=False,
 			)
+		)
 
 	fig.update_layout(
-		margin={"l": 24, "r": 20, "t": 20, "b": 30},
+		title={"text": label, "font": {"color": "#d6d6d6", "size": 14}, "x": 0.5},
+		margin={"l": 24, "r": 20, "t": 44, "b": 30},
 		paper_bgcolor="#121212",
 		plot_bgcolor="#191919",
 		xaxis={"title": "Month", "gridcolor": "#2a2a2a", "color": "#d6d6d6"},
 		yaxis={"title": "Depreciation", "gridcolor": "#2a2a2a", "color": "#d6d6d6"},
-		legend={"orientation": "h", "y": 1.12, "x": 0},
-		height=360,
+		showlegend=False,
+		height=280,
 	)
 	st.plotly_chart(fig, use_container_width=True)
 
@@ -271,6 +306,23 @@ with st.sidebar:
 if "page" not in st.session_state:
 	st.session_state.page = "start"
 
+# Compatibility guard for older session state snapshots after schema changes.
+required_keys = [
+	"running",
+	"month_idx",
+	"total_months",
+	"history_company_a",
+	"history_company_b",
+	"book_value",
+	"current_owner",
+	"current_schedule",
+	"upgrade_pending",
+	"events",
+]
+if st.session_state.page != "start" and any(key not in st.session_state for key in required_keys):
+	init_state(params)
+	st.rerun()
+
 if st.session_state.page == "start":
 	st.markdown(
 		"""
@@ -296,12 +348,16 @@ elif st.session_state.page == "end":
 		""",
 		unsafe_allow_html=True,
 	)
-	total_dep = sum(st.session_state.history)
-	col_a, col_b, col_c = st.columns(3)
+	total_dep_a = sum(st.session_state.history_company_a)
+	total_dep_b = sum(st.session_state.history_company_b)
+	total_dep = total_dep_a + total_dep_b
+	col_a, col_b, col_c, col_d = st.columns(4)
 	col_a.metric("Months Simulated", st.session_state.month_idx)
-	col_b.metric("Total Depreciation", f"{total_dep:,.0f}")
-	col_c.metric("Ending Book Value", f"{st.session_state.book_value:,.0f}")
-	render_chart()
+	col_b.metric("Company A Total Dep", f"{total_dep_a:,.0f}")
+	col_c.metric("Company B Total Dep", f"{total_dep_b:,.0f}")
+	col_d.metric("Combined Total Dep", f"{total_dep:,.0f}")
+	render_chart_company("A")
+	render_chart_company("B")
 	if st.button("Play Again", type="primary"):
 		init_state(params)
 		st.rerun()
@@ -311,38 +367,50 @@ else:
 		"""
 		<div class="title-wrap">
 			<h2 style="margin:0; color:#2f2418;">Business Event x Finance Data Pattern</h2>
-			<p style="margin-top:6px; color:#59452f;">Left: Capitalization | Middle: Start/Stop | Right: Impairment</p>
+			<p style="margin-top:6px; color:#59452f;">Capitalization | Start/Stop | Impairment | Transfer (A→B)</p>
 		</div>
 		""",
 		unsafe_allow_html=True,
 	)
 
 	st.markdown('<div class="handheld">', unsafe_allow_html=True)
-	render_chart()
+	render_chart_company("A")
+	render_chart_company("B")
 	meta_1, meta_2, meta_3, meta_4 = st.columns(4)
 	meta_1.metric("Method", st.session_state.method)
 	meta_2.metric("Current Month", f"{st.session_state.month_idx}/{st.session_state.total_months}")
-	meta_3.metric("Book Value", f"{st.session_state.book_value:,.0f}")
-	status_label = "Pending" if st.session_state.upgrade_pending else "Normal"
+	
+	display_value = f"{st.session_state.book_value:,.0f}"
+	meta_3.metric("Book Value", display_value)
+
+	if st.session_state.upgrade_pending:
+		status_label = "Upgrade Pending"
+	else:
+		status_label = f"Owner: Co.{st.session_state.current_owner}"
 	meta_4.metric("Status", status_label)
 
-	left, mid, right = st.columns([1, 1, 1])
-	with left:
+	btn1, btn2, btn3, btn4 = st.columns([1, 1, 1, 1])
+	with btn1:
 		left_label = "Upgrade Acceptance" if st.session_state.upgrade_pending else "Upgrade Request"
-		if st.button(left_label, use_container_width=True):
+		if st.button(left_label, use_container_width=True, disabled=False):
 			if st.session_state.upgrade_pending:
 				apply_upgrade_acceptance()
 			else:
 				apply_upgrade_request()
 			st.rerun()
-	with mid:
+	with btn2:
 		toggle_label = "Stop Depreciation" if st.session_state.running else "Start Depreciation"
 		if st.button(toggle_label, type="primary", use_container_width=True):
 			st.session_state.running = not st.session_state.running
 			st.rerun()
-	with right:
+	with btn3:
 		if st.button("Impairment", use_container_width=True, disabled=st.session_state.upgrade_pending):
 			apply_impairment()
+			st.rerun()
+	with btn4:
+		transfer_label = f"Transfer → Co.{'B' if st.session_state.current_owner == 'A' else 'A'}"
+		if st.button(transfer_label, use_container_width=True, disabled=st.session_state.upgrade_pending):
+			apply_transfer()
 			st.rerun()
 
 	if st.session_state.upgrade_pending:
