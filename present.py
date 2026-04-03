@@ -265,13 +265,6 @@ st.markdown(
 		margin-bottom: 12px;
 		font-family: 'Avenir Next', 'PingFang SC', sans-serif;
 	}
-	.handheld {
-		background: linear-gradient(160deg, #f3ede4 0%, #e7dccb 100%);
-		border: 2px solid #bfa98b;
-		border-radius: 24px;
-		padding: 18px;
-		box-shadow: 0 14px 36px rgba(72, 44, 20, 0.20);
-	}
 	.mini-note {
 		color: #7f6b55;
 		font-size: 0.95rem;
@@ -373,7 +366,6 @@ else:
 		unsafe_allow_html=True,
 	)
 
-	st.markdown('<div class="handheld">', unsafe_allow_html=True)
 	render_chart_company("A")
 	render_chart_company("B")
 	meta_1, meta_2, meta_3, meta_4 = st.columns(4)
@@ -417,7 +409,6 @@ else:
 		st.caption("Upgrade request in progress: timeline continues and monthly depreciation is 0 until acceptance.")
 	else:
 		st.caption("Business actions re-base remaining depreciation path using current carrying amount and selected method.")
-	st.markdown("</div>", unsafe_allow_html=True)
 
 	if st.session_state.running:
 		advance_one_month()
