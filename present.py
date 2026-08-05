@@ -221,53 +221,124 @@ def render_chart_company(company):
 			mode="lines",
 			line={"shape": "spline", "smoothing": 1.1, "width": 4, "color": color},
 			name=f"{label} Depreciation",
+			hoverinfo="skip",
 		)
 	)
 
+	ev_x, ev_y, ev_text, ev_colors = [], [], [], []
 	for event in st.session_state.events:
 		month = event["month"]
 		if month <= 0 or month > len(history):
 			continue
-		y_val = history[month - 1]
+		ev_x.append(month)
+		ev_y.append(history[month - 1])
+		ev_text.append(event["label"])
+		ev_colors.append(event["color"])
+
+	if ev_x:
 		fig.add_trace(
 			go.Scatter(
-				x=[month],
-				y=[y_val],
+				x=ev_x,
+				y=ev_y,
 				mode="markers+text",
-				marker={"size": 10, "color": event["color"]},
-				text=[event["label"]],
+				marker={"size": 11, "color": ev_colors, "line": {"color": "#fffaf0", "width": 2}},
+				text=ev_text,
 				textposition="top center",
+				textfont={"color": ev_colors, "size": 11, "family": "Avenir Next, PingFang SC, sans-serif"},
 				showlegend=False,
+				hoverinfo="skip",
 			)
 		)
 
 	fig.update_layout(
-		title={"text": label, "font": {"color": "#d6d6d6", "size": 14}, "x": 0.5},
+		title={"text": label, "font": {"color": "#5b4a36", "size": 14, "family": "Avenir Next, PingFang SC, sans-serif"}, "x": 0.5},
 		margin={"l": 24, "r": 20, "t": 44, "b": 30},
-		paper_bgcolor="#121212",
-		plot_bgcolor="#191919",
-		xaxis={"title": "Month", "gridcolor": "#2a2a2a", "color": "#d6d6d6"},
-		yaxis={"title": "Depreciation", "gridcolor": "#2a2a2a", "color": "#d6d6d6"},
+		paper_bgcolor="#fdfaf3",
+		plot_bgcolor="#fffaf0",
+		xaxis={"title": "Month", "gridcolor": "#ece1c8", "color": "#7f6b55", "linecolor": "#d9c8ae", "zerolinecolor": "#e8dfca"},
+		yaxis={"title": "Depreciation", "gridcolor": "#ece1c8", "color": "#7f6b55", "linecolor": "#d9c8ae", "zerolinecolor": "#e8dfca"},
+		font={"family": "Avenir Next, PingFang SC, sans-serif", "color": "#5b4a36"},
 		showlegend=False,
 		height=280,
+		uirevision="static",
 	)
-	st.plotly_chart(fig, use_container_width=True)
+	st.plotly_chart(fig, use_container_width=True, key=f"chart_{company}", config={"displayModeBar": False})
 
 
 st.markdown(
 	"""
 	<style>
+	html, body, [data-testid="stAppViewContainer"] {
+		background: linear-gradient(180deg, #fdfaf3 0%, #f6efe2 100%);
+		font-family: 'Avenir Next', 'PingFang SC', 'Helvetica Neue', sans-serif;
+	}
 	.title-wrap {
 		background: linear-gradient(135deg, #f9f4eb 0%, #efe5d8 100%);
 		border: 1px solid #d9c8ae;
 		border-radius: 16px;
 		padding: 18px 22px;
-		margin-bottom: 12px;
-		font-family: 'Avenir Next', 'PingFang SC', sans-serif;
+		margin-bottom: 14px;
 	}
-	.mini-note {
-		color: #7f6b55;
+	.mini-note { color: #7f6b55; font-size: 0.95rem; }
+	.status-banner {
+		background: #fdf3dc;
+		border: 1px solid #e6c98a;
+		border-left: 4px solid #c2a878;
+		border-radius: 10px;
+		padding: 10px 14px;
+		color: #6a4f25;
+		margin-top: 10px;
 		font-size: 0.95rem;
+	}
+	.muted-caption {
+		color: #8b7860;
+		font-size: 0.9rem;
+		margin-top: 8px;
+	}
+	[data-testid="stSidebar"] { background: #f6efe2; }
+	[data-testid="stSidebar"] *,
+	[data-testid="stSidebar"] label,
+	[data-testid="stSidebar"] h1,
+	[data-testid="stSidebar"] h2,
+	[data-testid="stSidebar"] h3,
+	[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p,
+	[data-testid="stSidebar"] [data-baseweb="select"] div { color: #3d2f1f; }
+	[data-testid="stSidebar"] input,
+	[data-testid="stSidebar"] [data-baseweb="input"] input { color: #3d2f1f !important; }
+	[data-testid="stAppViewContainer"] .stMarkdown,
+	[data-testid="stAppViewContainer"] .stMarkdown p,
+	[data-testid="stAppViewContainer"] .stMarkdown li,
+	[data-testid="stAppViewContainer"] h1,
+	[data-testid="stAppViewContainer"] h2,
+	[data-testid="stAppViewContainer"] h3 { color: #3d2f1f; }
+	[data-testid="stMetric"] {
+		background: #fdfaf3;
+		border: 1px solid #e8dfca;
+		border-radius: 12px;
+		padding: 10px 14px;
+	}
+	[data-testid="stMetricLabel"] p { color: #8b7860; }
+	[data-testid="stMetricValue"] { color: #3d2f1f; }
+	.stButton > button {
+		border-radius: 12px;
+		border: 1px solid #d9c8ae;
+		background: #fdfaf3;
+		color: #3d2f1f;
+		font-weight: 500;
+		transition: background 120ms ease, border-color 120ms ease;
+	}
+	.stButton > button:hover:not(:disabled) {
+		background: #f4ead8;
+		border-color: #c2a878;
+	}
+	.stButton > button:disabled { opacity: 0.45; }
+	.stButton > button[kind="primary"] {
+		background: linear-gradient(135deg, #c2a878 0%, #a78a5b 100%);
+		border-color: #a78a5b;
+		color: #fff;
+	}
+	.stButton > button[kind="primary"]:hover:not(:disabled) {
+		background: linear-gradient(135deg, #b89a66 0%, #8f7647 100%);
 	}
 	</style>
 	""",
@@ -326,7 +397,7 @@ if st.session_state.page == "start":
 		""",
 		unsafe_allow_html=True,
 	)
-	st.info("Press enter to launch the handheld simulator. Use three buttons to create business events and track the accounting response.")
+	st.info("Click **Enter Simulator** to start. Use the four action buttons to trigger business events and watch the depreciation curve respond.")
 	if st.button("Enter Simulator", type="primary"):
 		init_state(params)
 		st.rerun()
@@ -336,7 +407,7 @@ elif st.session_state.page == "end":
 		"""
 		<div class="title-wrap">
 			<h2 style="margin:0; color:#2f2418;">Simulation Completed</h2>
-			<p style="margin-top:8px; color:#59452f;">You have reached the end of useful life. Compare event moments with the depreciation curve to narrate business-finance linkage.</p>
+			<p style="margin-top:8px; color:#59452f;">Asset has reached end of useful life. Compare each event with the curve to see how business decisions shape financial outcomes.</p>
 		</div>
 		""",
 		unsafe_allow_html=True,
@@ -360,7 +431,7 @@ else:
 		"""
 		<div class="title-wrap">
 			<h2 style="margin:0; color:#2f2418;">Business Event x Finance Data Pattern</h2>
-			<p style="margin-top:6px; color:#59452f;">Capitalization | Start/Stop | Impairment | Transfer (A→B)</p>
+			<p style="margin-top:6px; color:#59452f;">Capitalize · Run/Pause · Impair · Transfer between companies</p>
 		</div>
 		""",
 		unsafe_allow_html=True,
@@ -384,31 +455,54 @@ else:
 	btn1, btn2, btn3, btn4 = st.columns([1, 1, 1, 1])
 	with btn1:
 		left_label = "Upgrade Acceptance" if st.session_state.upgrade_pending else "Upgrade Request"
-		if st.button(left_label, use_container_width=True, disabled=False):
+		left_help = (
+			"Confirm last month's upgrade. The capitalized amount is added to book value and depreciation resumes."
+			if st.session_state.upgrade_pending
+			else "Capitalize an upgrade. Depreciation pauses for this month and the next, until you accept."
+		)
+		if st.button(left_label, use_container_width=True, help=left_help):
 			if st.session_state.upgrade_pending:
 				apply_upgrade_acceptance()
 			else:
 				apply_upgrade_request()
 			st.rerun()
 	with btn2:
-		toggle_label = "Stop Depreciation" if st.session_state.running else "Start Depreciation"
-		if st.button(toggle_label, type="primary", use_container_width=True):
+		toggle_label = "Pause" if st.session_state.running else "Run"
+		toggle_help = "Pause the timeline." if st.session_state.running else "Advance one month every 0.35 seconds."
+		if st.button(toggle_label, type="primary", use_container_width=True, help=toggle_help):
 			st.session_state.running = not st.session_state.running
 			st.rerun()
 	with btn3:
-		if st.button("Impairment", use_container_width=True, disabled=st.session_state.upgrade_pending):
+		if st.button(
+			"Impairment",
+			use_container_width=True,
+			disabled=st.session_state.upgrade_pending,
+			help="Recognize an impairment loss. Book value drops and remaining depreciation is rebalanced.",
+		):
 			apply_impairment()
 			st.rerun()
 	with btn4:
-		transfer_label = f"Transfer → Co.{'B' if st.session_state.current_owner == 'A' else 'A'}"
-		if st.button(transfer_label, use_container_width=True, disabled=st.session_state.upgrade_pending):
+		next_owner = "B" if st.session_state.current_owner == "A" else "A"
+		transfer_label = f"Transfer → Co.{next_owner}"
+		if st.button(
+			transfer_label,
+			use_container_width=True,
+			disabled=st.session_state.upgrade_pending,
+			help=f"Move the asset to Company {next_owner}. Net book value carries forward; the curve switches lines.",
+		):
 			apply_transfer()
 			st.rerun()
 
 	if st.session_state.upgrade_pending:
-		st.caption("Upgrade request in progress: timeline continues and monthly depreciation is 0 until acceptance.")
+		st.markdown(
+			f"<div class='status-banner'>Upgrade pending — depreciation is paused this month. Click <b>Upgrade Acceptance</b> next month to capitalize <b>+{st.session_state.upgrade_pending_delta:,.0f}</b>.</div>",
+			unsafe_allow_html=True,
+		)
 	else:
-		st.caption("Business actions re-base remaining depreciation path using current carrying amount and selected method.")
+		st.markdown(
+			"<div class='muted-caption'>Each business action re-bases the remaining depreciation path using current book value and the selected method.</div>",
+			unsafe_allow_html=True,
+		)
 
 	if st.session_state.running:
 		advance_one_month()
